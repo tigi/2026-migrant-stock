@@ -27,8 +27,6 @@ SELECTED_YEAR = '2024'
 ALL_YEARS = [ '1990','1995','2000','2005','2010','2015','2020','2024']
 
 
-
-
 # ============= DATA LOADING & PREPROCESSING =============
 
 def load_and_preprocess_data():
@@ -57,7 +55,30 @@ def load_and_preprocess_data():
     known_countries = set(countries_df['name'].tolist())  # Use set for O(1) lookup
     
     # Load income classification
-    income_df = pd.read_excel('class-country.xlsx')
+    
+    income_df = pd.read_excel('OGHIST_2025_10_07.xlsx',
+                             sheet_name='Country Analytical History',
+                             header=10,
+                             #isocode, countryname, 2024 classification (col 39)
+                             usecols=[0,1,39])
+
+    income_df.rename(columns={'Unnamed: 0': 'Iso', 'Unnamed: 1': 'Economy', 'Unnamed: 39':'Income group'}, inplace=True)
+
+    # convert all column names to strings, just to be sure
+    income_df.columns = income_df.columns.astype(str)
+
+    #the imported income columns work with L,LM,UM,H
+    income_groups = {'L': 'Low income','LM':'Lower middle income','UM':'Upper middle income','H':'High income'}
+
+    income_df['Income group'] = income_df['Income group'].map(income_groups).fillna('Unknown')
+
+    #if you know at forehand that countrynames are not equal and there's no ISO value
+
+    country_names = {"Bolivia": "Bolivia (Plurinational State of)", "Venezuela": "Venezuela (Bolivarian Republic of)", "United States": "United States of America"}
+
+    income_df['Economy'] = income_df['Economy'].replace(country_names)
+        
+    
     income_lookup = income_df.set_index('Economy')['Income group'].to_dict()
     
     # Filter to known countries only
