@@ -78,7 +78,7 @@ def load_and_preprocess_data():
 
     income_df['Economy'] = income_df['Economy'].replace(country_names)
         
-    
+    #create lookup dictionary
     income_lookup = income_df.set_index('Economy')['Income group'].to_dict()
     
     # Filter to known countries only
@@ -150,7 +150,7 @@ def create_trend_country(country, dff_full):
         y=emigration_totals,
         mode='lines+markers',
         name='Emigration',
-        line=dict(width=3, color='rgba(255,193,7,0.9)'),  # Yellow
+        line=dict(width=1, color='rgba(255,193,7,0.9)'),  # Yellow
         marker=dict(size=8, color='rgba(255,193,7,0.9)')
     ))
     
@@ -160,7 +160,7 @@ def create_trend_country(country, dff_full):
         y=immigration_totals,
         mode='lines+markers',
         name='Immigration',
-        line=dict(width=3, color='rgba(255,255,255,0.9)'),  # White
+        line=dict(width=1, color='rgba(255,255,255,0.9)'),  # White
         marker=dict(size=8, color='rgba(255,255,255,0.9)')
     ))
     
@@ -168,22 +168,29 @@ def create_trend_country(country, dff_full):
     y_max = max(emigration_totals.max(), immigration_totals.max())
     
     linefig.update_layout(
-        height=250,
+        height=270,
+        margin=dict(l=0, r=40, t=80, b=80),
         title=dict(
-            text=f'{country}: migrant stock trends 1990-2024',
+            text=f'{country}:<br>migrant stock 1990-2024',
             x=0.5,  # Center horizontally
             xanchor='center'
         ),
-        xaxis_title="Year",
+        xaxis_title="",
         yaxis_title="",
         plot_bgcolor='#2c2f38',
         paper_bgcolor='#2c2f38',
         font=dict(color='rgba(255,255,255,0.7)'),
         legend=dict(
-            x=1.02,  # Position outside right edge
-            y=1,     # Top
-            xanchor='left',  # Anchor left edge of legend to x position
-            yanchor='top',
+            # x=1.02,  # Position outside right edge
+            # y=1,     # Top
+            # xanchor='left',  # Anchor left edge of legend to x position
+            # yanchor='top',
+            orientation="h",
+            yanchor="bottom",
+            y=-0.60,
+            xanchor="center",
+            x=0.5,
+  
             bgcolor='rgba(44, 47, 56, 0.8)',
             bordercolor='rgba(255,255,255,0.3)',
             borderwidth=1
@@ -281,11 +288,11 @@ def create_country_info_card(country, view,  dff):
                         f"{'to' if not view else 'from'} {related_countries} countries",
                         className="card-text", style={'color': 'white'}
                     ),
-                ], width=3, style={"textAlign": "center"}),
+                ], width=12, xl = 3, style={"textAlign": "center"}),
                 dbc.Col([
                     html.H3(f"{graph_title}", className="card-title", style={"textAlign": "center"}),
                     html.Div(dcc.Graph(figure=fig))
-                ], width=9)
+                ], width=12, xl = 9)
             ])
         ]),
         dbc.CardFooter([
@@ -348,13 +355,14 @@ app.layout = dbc.Container([
             dbc.Row([               
                  dbc.Col(html.H3("View 2024 details on")),
                  dbc.Col(select_view)
-             ], style={'marginBottom': '1rem'}, className="selectionRow"),
+             ],  className="selectionRow"),
            
             html.Div(id='country-kpi'),
                 
 
         ],width=12, xl = 6),
         dbc.Col([
+            html.H3(id="map-title", className="text-center"),
             dl.Map(center=[20, 0], zoom=2, children=[
                 dl.TileLayer(),
                 dl.LayerGroup(id="arrows-layer")
@@ -388,6 +396,7 @@ app.layout = dbc.Container([
 
 @app.callback(
     Output("arrows-layer", "children"),
+    Output("map-title","children"),
     Output("country-kpi", "children"),
     Output("trend-chart","children"),
     Input("country-dropdown", "value"),
@@ -399,14 +408,14 @@ def update_map(selected_country, selected_view):
     if not selected_country:
         selected_country = 'Netherlands'
     
-    # Calculate max y-value across BOTH immigration and emigration for consistent scaling
+    # # Calculate max y-value across BOTH immigration and emigration for consistent scaling
     immigration_data = df_known[df_known['Destination'] == selected_country]
     emigration_data = df_known[df_known['Origin'] == selected_country]
     
-    immigration_max = immigration_data[ALL_YEARS].sum().max() if len(immigration_data) > 0 else 0
-    emigration_max = emigration_data[ALL_YEARS].sum().max() if len(emigration_data) > 0 else 0
+    # immigration_max = immigration_data[ALL_YEARS].sum().max() if len(immigration_data) > 0 else 0
+    # emigration_max = emigration_data[ALL_YEARS].sum().max() if len(emigration_data) > 0 else 0
     
-    y_max = max(immigration_max, emigration_max)
+    # y_max = max(immigration_max, emigration_max)
     
     # Filter data based on view
     if selected_view:  # Destination view (immigration)
@@ -416,6 +425,7 @@ def update_map(selected_country, selected_view):
         other_country_col = 'Origin'
         # ✅ Recalculate color based on current income group column
         dff['marker_color'] = dff[income_col].map(INCOME_COLORS)
+        map_title = f"Immigration stock {selected_country} 2024"
     else:  # Origin view (emigration)
         dff = emigration_data.copy()
         coord_cols = ('dest_lat', 'dest_lon')
@@ -423,6 +433,7 @@ def update_map(selected_country, selected_view):
         other_country_col = 'Destination'
         # ✅ Recalculate color based on current income group column
         dff['marker_color'] = dff[income_col].map(INCOME_COLORS)
+        map_title = f"Emigration stock {selected_country} 2024"
     
     # Pre-calculate radius for all markers
     dff['radius'] = 3 + np.sqrt(dff['2024']) * 0.01
@@ -484,7 +495,7 @@ def update_map(selected_country, selected_view):
             )
         )
     
-    return map_elements, create_country_info_card(selected_country, selected_view, dff),\
+    return map_elements, map_title, create_country_info_card(selected_country, selected_view, dff),\
         create_trend_country(selected_country, df_known)
 
 if __name__ == '__main__':
